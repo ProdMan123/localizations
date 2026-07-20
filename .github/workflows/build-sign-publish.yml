@@ -93,8 +93,10 @@ jobs:
         with:
           repository: ${{ env.APP_REPO }}
           ref: ${{ env.APP_REF }}
-          token: ${{ secrets.SECMAIL_READ_TOKEN }}
           path: app
+          # Public app repos (e.g. scomm-ai/secMail0) need no token. For private
+          # app repos, set secret SECMAIL_READ_TOKEN on this repository.
+          token: ${{ secrets.SECMAIL_READ_TOKEN || github.token }}
 
       - uses: subosito/flutter-action@v2
         with:

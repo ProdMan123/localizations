@@ -52,9 +52,21 @@ dart run tool/publish_language_packs.dart \
   --repository scomm-public/localizations
 ```
 
-CI should upload the resulting files to the matching GitHub Release.
+Continuous integration publishes to the rolling **`l10n-latest`** release tag
+(updated in place) so clients can keep using:
 
-### Automated pipeline (recommended)
+```text
+https://github.com/scomm-public/localizations/releases/latest/download/languages.json
+```
+
+### Automatic triggers
+
+| Event | Repository | Behavior |
+|-------|------------|----------|
+| Push to `main` under `catalog/`, `full/`, `bootstrap/` | `scomm-public/localizations` | Detect changed locales → rebuild → sign → publish `l10n-latest` |
+| Push to `main` under `lib/core/localizations/l10n/` | Application repo | `repository_dispatch` → same publish workflow |
+| App `v*` tag | Application repo | Dispatch with `l10n-<tag>` (see app `l10n.yml`) |
+| Manual | `scomm-public/localizations` | **Actions → Build, sign, and publish language packs** |
 
 Workflow **Build, sign, and publish language packs**
 (`.github/workflows/build-sign-publish.yml`) on this repo:
