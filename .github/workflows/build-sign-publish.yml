@@ -1,14 +1,22 @@
 name: Build, sign, and publish language packs
 
-# Builds packs from the application repo, signs with Ed25519, and publishes a
-# GitHub Release on scomm-public/localizations.
+# Builds packs from the application repo + public translation catalogs, signs with
+# Ed25519, and publishes GitHub Release assets (default tag: l10n-latest).
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'catalog/**'
+      - 'full/**'
+      - 'bootstrap/**'
+      - '.github/workflows/build-sign-publish.yml'
+      - 'tools/**'
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release tag (e.g. l10n-v1)'
+        description: 'Release tag (e.g. l10n-latest)'
         required: true
-        default: 'l10n-v1'
+        default: 'l10n-latest'
       signing_key_id:
         description: 'Signing key id'
         required: true
@@ -16,13 +24,13 @@ on:
       app_repo:
         description: 'Application repository (owner/name)'
         required: true
-        default: 'advcomm-DevOps/secMail'
+        default: 'scomm-ai/secMail0'
       app_ref:
         description: 'Git ref in app repo (tag, branch, or SHA)'
         required: true
         default: 'main'
-      arb_dir:
-        description: 'Optional ARB directory relative to app root (full catalogs)'
+      locales:
+        description: 'Comma-separated locales to rebuild (empty = auto-detect / all)'
         required: false
         default: ''
   repository_dispatch:
@@ -31,21 +39,54 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: language-packs-${{ github.repository }}
+  cancel-in-progress: true
+
 env:
   PACK_ROOT: dist/language_packs
+  BUILD_TMP: dist/build_tmp
 
 jobs:
   build-sign-publish:
     if: github.repository == 'scomm-public/localizations'
     runs-on: ubuntu-latest
     env:
-      RELEASE_TAG: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.tag || inputs.tag }}
-      SIGNING_KEY_ID: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.signing_key_id || inputs.signing_key_id }}
-      APP_REPO: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.app_repo || inputs.app_repo }}
-      APP_REF: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.app_ref || inputs.app_ref }}
-      ARB_DIR: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.arb_dir || inputs.arb_dir }}
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.event_name == 'repository_dispatch' && github.event.client_payload.tag || 'l10n-latest' }}
+      SIGNING_KEY_ID: ${{ github.event_name == 'workflow_dispatch' && inputs.signing_key_id || github.event_name == 'repository_dispatch' && github.event.client_payload.signing_key_id || 'l10n-k1' }}
+      APP_REPO: ${{ github.event_name == 'workflow_dispatch' && inputs.app_repo || github.event_name == 'repository_dispatch' && github.event.client_payload.app_repo || 'scomm-ai/secMail0' }}
+      APP_REF: ${{ github.event_name == 'workflow_dispatch' && inputs.app_ref || github.event_name == 'repository_dispatch' && github.event.client_payload.app_ref || 'main' }}
+      INPUT_LOCALES: ${{ github.event_name == 'workflow_dispatch' && inputs.locales || github.event_name == 'repository_dispatch' && github.event.client_payload.locales || '' }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect locales to rebuild
+        id: detect
+        run: |
+          set -euo pipefail
+          chmod +x tools/detect_changed_locales.sh
+          if [ -n "$INPUT_LOCALES" ]; then
+            echo "locales=$INPUT_LOCALES" >> "$GITHUB_OUTPUT"
+            echo "mode=partial" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [ "${{ github.event_name }}" = "push" ]; then
+            changed="$(./tools/detect_changed_locales.sh "${{ github.event.before }}" "${{ github.sha }}")"
+          elif [ "${{ github.event_name }}" = "repository_dispatch" ]; then
+            changed=""
+          else
+            changed="ALL"
+          fi
+          if [ -z "$changed" ] || [ "$changed" = "ALL" ]; then
+            echo "locales=" >> "$GITHUB_OUTPUT"
+            echo "mode=all" >> "$GITHUB_OUTPUT"
+          else
+            echo "locales=$changed" >> "$GITHUB_OUTPUT"
+            echo "mode=partial" >> "$GITHUB_OUTPUT"
+          fi
+          echo "Rebuild: mode=$(grep ^mode= "$GITHUB_OUTPUT" | cut -d= -f2) locales=$(grep ^locales= "$GITHUB_OUTPUT" | cut -d= -f2-)"
 
       - name: Checkout application repository
         uses: actions/checkout@v4
@@ -60,6 +101,24 @@ jobs:
           channel: stable
           cache: true
 
+      - name: Prepare merged ARB catalog
+        run: |
+          set -euo pipefail
+          chmod +x tools/prepare_arb_catalog.sh
+          ./tools/prepare_arb_catalog.sh \
+            app/lib/core/localizations/l10n \
+            dist/arb_catalog
+
+      - name: Seed pack root from previous release (partial rebuild)
+        if: steps.detect.outputs.mode == 'partial'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          chmod +x tools/merge_language_pack_release.sh tools/unzip_language_packs.sh
+          ./tools/merge_language_pack_release.sh "$PACK_ROOT" "$RELEASE_TAG"
+          ./tools/unzip_language_packs.sh "$PACK_ROOT"
+
       - name: Build language pack directories
         working-directory: app
         run: |
@@ -71,13 +130,29 @@ jobs:
             --tag "$RELEASE_TAG"
             --repository scomm-public/localizations
             --skip-zip
+            --arb-dir "../dist/arb_catalog"
           )
-          if [ -n "$ARB_DIR" ]; then
-            PUBLISH_ARGS+=(--arb-dir "$ARB_DIR")
+          if [ -n "${{ steps.detect.outputs.locales }}" ]; then
+            PUBLISH_ARGS+=(--locales "${{ steps.detect.outputs.locales }}")
           fi
           dart "${PUBLISH_ARGS[@]}"
-          mkdir -p "../$PACK_ROOT"
-          cp -R build/language_packs/* "../$PACK_ROOT/"
+          mkdir -p "../$BUILD_TMP"
+          cp -R build/language_packs/* "../$BUILD_TMP/"
+
+      - name: Overlay rebuilt packs
+        if: steps.detect.outputs.mode == 'partial'
+        run: |
+          set -euo pipefail
+          chmod +x tools/overlay_built_packs.sh
+          ./tools/overlay_built_packs.sh "$BUILD_TMP" "$PACK_ROOT" "$RELEASE_TAG"
+
+      - name: Stage full rebuild output
+        if: steps.detect.outputs.mode == 'all'
+        run: |
+          set -euo pipefail
+          rm -rf "$PACK_ROOT"
+          mkdir -p "$PACK_ROOT"
+          cp -R "$BUILD_TMP"/* "$PACK_ROOT/"
 
       - name: Sign pack manifests
         env:
@@ -105,16 +180,15 @@ jobs:
           root = Path("dist/language_packs")
           index = json.loads((root / "languages.json").read_text(encoding="utf-8"))
           assert index.get("schemaVersion") == 1
-          for lang in index["languages"]:
-              if lang.get("bundled"):
-                  continue
+          downloadable = [l for l in index["languages"] if not l.get("bundled")]
+          assert downloadable, "expected downloadable locales"
+          for lang in downloadable:
               locale = lang["locale"]
               assert lang.get("sha256"), locale
-              zip_path = root / f"{locale}.scomm-langpack.zip"
-              assert zip_path.exists(), zip_path
-          print(f"OK: {len(index['languages'])} languages")
+              assert (root / f"{locale}.scomm-langpack.zip").exists(), locale
+          print(f"OK: {len(index['languages'])} languages ({len(downloadable)} downloadable)")
           PY
-          ls -la "$PACK_ROOT"/*.scomm-langpack.zip
+          ls -la "$PACK_ROOT"/*.scomm-langpack.zip | head
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
@@ -123,6 +197,7 @@ jobs:
           name: ${{ env.RELEASE_TAG }}
           draft: false
           prerelease: false
+          make_latest: true
           generate_release_notes: true
           files: |
             ${{ env.PACK_ROOT }}/languages.json
