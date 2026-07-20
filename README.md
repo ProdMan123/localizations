@@ -62,7 +62,22 @@ intended to be downloadable from this repo’s Releases.
 3. Human-reviewed strings should be marked locked in metadata so automated
    translation does not overwrite them (see app tooling docs).
 
+## App integration
+
+The SComm app:
+
+1. Bundles **bootstrap** strings for auth / onboarding / pack UI in many locales  
+2. Fetches this repo’s latest `languages.json`  
+3. Downloads allowlisted `*.scomm-langpack.zip` Release assets on user request  
+
+Index URL:
+
+```text
+https://github.com/scomm-public/localizations/releases/latest/download/languages.json
+```
+
 ## Status
 
-Initial structure only. Release assets will appear after the first `l10n-v*`
-publish from CI or a manual Release upload.
+Structure is in place. Release assets appear after the app CI publishes on an
+app `v*` tag (Release tag `l10n-<app-tag>`), or after a manual upload via
+**Publish language packs** workflow.
