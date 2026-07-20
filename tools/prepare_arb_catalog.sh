@@ -20,7 +20,7 @@ copy_tree() {
 }
 
 # App bootstrap/full bundled ARBs are the base.
-copy_tree "$APP_L10n"
+copy_tree "$APP_L10N"
 # Public repo overlays (catalog wins over bootstrap/full duplicates).
 copy_tree "catalog"
 copy_tree "full"
