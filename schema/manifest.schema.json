@@ -1,0 +1,70 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/scomm-public/localizations/schema/manifest.schema.json",
+  "title": "SComm language pack manifest",
+  "type": "object",
+  "required": [
+    "formatVersion",
+    "locale",
+    "displayName",
+    "nativeName",
+    "packVersion",
+    "stringCount"
+  ],
+  "properties": {
+    "formatVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "locale": {
+      "type": "string",
+      "pattern": "^[a-z]{2,8}$"
+    },
+    "displayName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "nativeName": {
+      "type": "string",
+      "minLength": 1
+    },
+    "packVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "catalogVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "stringCount": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "stringsSha256": {
+      "type": "string",
+      "pattern": "^[a-fA-F0-9]{64}$"
+    },
+    "appMinVersion": {
+      "type": "string"
+    },
+    "builtFromTemplate": {
+      "type": "string"
+    },
+    "sourceArb": {
+      "type": "string"
+    },
+    "templateKeyCount": {
+      "type": "integer"
+    },
+    "missingKeyCount": {
+      "type": "integer"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "direction": {
+      "type": "string",
+      "enum": ["ltr", "rtl"]
+    }
+  }
+}

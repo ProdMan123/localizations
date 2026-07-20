@@ -1,0 +1,66 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/scomm-public/localizations/schema/languages.schema.json",
+  "title": "SComm language index",
+  "type": "object",
+  "required": ["schemaVersion", "catalogVersion", "languages"],
+  "additionalProperties": false,
+  "properties": {
+    "schemaVersion": {
+      "type": "integer",
+      "const": 1
+    },
+    "catalogVersion": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "releaseTag": {
+      "type": "string",
+      "description": "GitHub Release tag that published this index"
+    },
+    "languages": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/language"
+      }
+    }
+  },
+  "$defs": {
+    "language": {
+      "type": "object",
+      "required": ["locale", "nativeName", "bundled"],
+      "additionalProperties": false,
+      "properties": {
+        "locale": {
+          "type": "string",
+          "pattern": "^[a-z]{2,8}$"
+        },
+        "nativeName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "displayName": {
+          "type": "string"
+        },
+        "bundled": {
+          "type": "boolean"
+        },
+        "version": {
+          "type": "string"
+        },
+        "url": {
+          "type": "string",
+          "format": "uri"
+        },
+        "sha256": {
+          "type": "string",
+          "pattern": "^[a-fA-F0-9]{64}$"
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["ltr", "rtl"]
+        }
+      }
+    }
+  }
+}

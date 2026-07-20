@@ -1,0 +1,51 @@
+name: Publish language packs
+
+# Upload pre-built pack artifacts to a GitHub Release on this public repo.
+# Build packs elsewhere (or add build steps later), then dispatch with a tag.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. l10n-v1)'
+        required: true
+        default: 'l10n-v1'
+      artifact_dir:
+        description: 'Directory containing languages.json and *.scomm-langpack.zip'
+        required: true
+        default: 'dist'
+
+permissions:
+  contents: write
+
+jobs:
+  publish:
+    if: github.repository == 'scomm-public/localizations'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check release assets exist
+        run: |
+          set -euo pipefail
+          DIR="${{ inputs.artifact_dir }}"
+          if [ ! -f "$DIR/languages.json" ]; then
+            echo "Missing $DIR/languages.json"
+            echo "Build packs first, place assets under $DIR/, then re-run."
+            echo "See docs/PUBLISHING.md"
+            exit 1
+          fi
+          ls -la "$DIR"/*.scomm-langpack.zip
+
+      - name: Create / update GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.tag }}
+          name: ${{ inputs.tag }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ${{ inputs.artifact_dir }}/languages.json
+            ${{ inputs.artifact_dir }}/*.scomm-langpack.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

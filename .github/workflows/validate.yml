@@ -1,0 +1,38 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  validate-json:
+    if: github.repository == 'scomm-public/localizations'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate example languages.json is parseable
+        run: |
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          path = Path("releases/example-languages.json")
+          data = json.loads(path.read_text(encoding="utf-8"))
+          assert data.get("schemaVersion") == 1, "schemaVersion must be 1"
+          assert isinstance(data.get("catalogVersion"), int)
+          assert isinstance(data.get("languages"), list) and data["languages"]
+          for lang in data["languages"]:
+              assert "locale" in lang and "nativeName" in lang and "bundled" in lang
+          print(f"OK: {path} ({len(data['languages'])} languages)")
+          PY
+
+      - name: Ensure pack zips are not committed
+        run: |
+          if git ls-files '*.scomm-langpack.zip' | grep -q .; then
+            echo "Built pack zips must not be committed; use GitHub Releases."
+            exit 1
+          fi
+          echo "OK: no pack zips in git"

@@ -1,0 +1,17 @@
+# Built packs (publish via GitHub Releases only)
+build/
+dist/
+*.scomm-langpack/
+*.scomm-langpack.zip
+
+# Editor / OS
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*~
+
+# Local secrets
+.env
+.env.*
