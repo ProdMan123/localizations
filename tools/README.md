@@ -1,13 +1,21 @@
 # Tools
 
-Pack-building and validation scripts may live here, or packs may be built from
-the application repository and only **published** to this repo’s Releases.
+## Catalog authoring (local only)
 
-Until dedicated tooling is added, use the application repo helpers:
+| Script | Purpose |
+|--------|---------|
+| `l10n_ai_translate.py` | AI-fill unlocked keys in `catalog/` (needs `app_en.arb`) |
+| `l10n_lock_human.py` | Mark catalog keys human-locked |
+| `arb_lock.py` | Shared lock / provenance helpers |
 
-- `tool/build_language_pack.dart`
-- `tool/publish_language_packs.dart --repository scomm-public/localizations`
-- `tool/validate_l10n.dart`
+Set `L10N_AI_API_KEY` in your local shell (never as a GitHub secret), run the
+scripts, then commit and push. See [docs/CATALOG_AUTHORING.md](../docs/CATALOG_AUTHORING.md).
+
+## Pack build / publish
+
+Packs are built in CI (`build-sign-publish.yml`) using the application repo’s
+`tool/publish_language_packs.dart` against a merged ARB catalog
+(`prepare_arb_catalog.sh`).
 
 ## Signing keys
 

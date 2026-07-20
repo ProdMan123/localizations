@@ -17,3 +17,8 @@ Thumbs.db
 .env.*
 *-private.pem
 *.key.pem
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/

@@ -64,9 +64,13 @@ https://github.com/scomm-public/localizations/releases/latest/download/languages
 | Event | Repository | Behavior |
 |-------|------------|----------|
 | Push to `main` under `catalog/`, `full/`, `bootstrap/` | `scomm-public/localizations` | Detect changed locales → rebuild → sign → publish `l10n-latest` |
-| Push to `main` under `lib/core/localizations/l10n/` | Application repo | `repository_dispatch` → same publish workflow |
-| App `v*` tag | Application repo | Dispatch with `l10n-<tag>` (see app `l10n.yml`) |
+| Push to `main` under `lib/core/localizations/l10n/app_*.arb` | Application repo | Thin `l10n-sync.yml` → `repository_dispatch` → same publish workflow |
 | Manual | `scomm-public/localizations` | **Actions → Build, sign, and publish language packs** |
+
+### Catalog authoring (local only)
+
+AI translate and human-lock are **not** GitHub Actions. Run the Python tools on
+your PC, then commit/push `catalog/` — see [CATALOG_AUTHORING.md](CATALOG_AUTHORING.md).
 
 Workflow **Build, sign, and publish language packs**
 (`.github/workflows/build-sign-publish.yml`) on this repo:
@@ -77,10 +81,8 @@ Workflow **Build, sign, and publish language packs**
 4. Zips signed packs and refreshes zip SHA-256 entries (`tools/package_language_packs.sh`)
 5. Publishes a GitHub Release
 
-Trigger manually (**Actions → Build, sign, and publish language packs**) or from
-an application `v*` tag via `repository_dispatch` (see app `.github/workflows/l10n.yml`).
-
-Required secrets: `L10N_SIGNING_PRIVATE_KEY_L10N_K1`, `SECMAIL_READ_TOKEN`.
+Required secrets: `L10N_SIGNING_PRIVATE_KEY_L10N_K1`, and `SECMAIL_READ_TOKEN`
+for private app repos. No AI API secret is stored in GitHub.
 
 ## Security baseline
 

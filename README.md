@@ -49,18 +49,20 @@ See [docs/PACK_FORMAT.md](docs/PACK_FORMAT.md).
 
 | Concern | Repository |
 |---------|------------|
-| App binary, gen_l10n bootstrap, runtime loader | Application repo (e.g. `advcomm-DevOps/secMail`) |
-| Public downloadable full language packs | **This repo** |
+| App binary, English template, bootstrap ARBs, runtime loader | Application repo (e.g. `scomm-ai/secMail0`) |
+| Full-catalog ARBs, AI translate, human locks, pack publish | **This repo** |
 
 English remains bundled in the application. Non-English full catalogs are
-intended to be downloadable from this repo’s Releases.
+downloadable from this repo’s Releases (`l10n-latest`).
 
 ## Contributing
 
-1. Prefer PRs that update sources under `catalog/` (or locale-specific paths).  
+1. Prefer PRs that update sources under `catalog/`.  
 2. Do not commit built `.zip` packs to git.  
-3. Human-reviewed strings should be marked locked in metadata so automated
-   translation does not overwrite them (see app tooling docs).
+3. Run AI translate / human-lock **locally**, then push — see
+   [docs/CATALOG_AUTHORING.md](docs/CATALOG_AUTHORING.md).  
+4. Human-reviewed strings should be marked locked (`x-scomm-locked`) so AI
+   translation does not overwrite them.
 
 ## App integration
 
@@ -78,6 +80,6 @@ https://github.com/scomm-public/localizations/releases/latest/download/languages
 
 ## Status
 
-Structure is in place. Release assets appear after the app CI publishes on an
-app `v*` tag (Release tag `l10n-<app-tag>`), or after a manual upload via
-**Publish language packs** workflow.
+Structure is in place. Release assets are published to rolling **`l10n-latest`**
+when `catalog/` / `full/` / `bootstrap/` change on `main`, when the app dispatches
+pack rebuild after ARB changes, or via **Build, sign, and publish language packs**.
