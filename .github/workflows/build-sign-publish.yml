@@ -1,0 +1,129 @@
+name: Build, sign, and publish language packs
+
+# Builds packs from the application repo, signs with Ed25519, and publishes a
+# GitHub Release on scomm-public/localizations.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Release tag (e.g. l10n-v1)'
+        required: true
+        default: 'l10n-v1'
+      signing_key_id:
+        description: 'Signing key id'
+        required: true
+        default: 'l10n-k1'
+      app_repo:
+        description: 'Application repository (owner/name)'
+        required: true
+        default: 'advcomm-DevOps/secMail'
+      app_ref:
+        description: 'Git ref in app repo (tag, branch, or SHA)'
+        required: true
+        default: 'main'
+      arb_dir:
+        description: 'Optional ARB directory relative to app root (full catalogs)'
+        required: false
+        default: ''
+  repository_dispatch:
+    types: [publish-language-packs]
+
+permissions:
+  contents: write
+
+env:
+  PACK_ROOT: dist/language_packs
+
+jobs:
+  build-sign-publish:
+    if: github.repository == 'scomm-public/localizations'
+    runs-on: ubuntu-latest
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.tag || inputs.tag }}
+      SIGNING_KEY_ID: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.signing_key_id || inputs.signing_key_id }}
+      APP_REPO: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.app_repo || inputs.app_repo }}
+      APP_REF: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.app_ref || inputs.app_ref }}
+      ARB_DIR: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.arb_dir || inputs.arb_dir }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Checkout application repository
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ env.APP_REPO }}
+          ref: ${{ env.APP_REF }}
+          token: ${{ secrets.SECMAIL_READ_TOKEN }}
+          path: app
+
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+
+      - name: Build language pack directories
+        working-directory: app
+        run: |
+          set -euo pipefail
+          flutter pub get
+          dart run tool/validate_l10n.dart
+          PUBLISH_ARGS=(
+            run tool/publish_language_packs.dart
+            --tag "$RELEASE_TAG"
+            --repository scomm-public/localizations
+            --skip-zip
+          )
+          if [ -n "$ARB_DIR" ]; then
+            PUBLISH_ARGS+=(--arb-dir "$ARB_DIR")
+          fi
+          dart "${PUBLISH_ARGS[@]}"
+          mkdir -p "../$PACK_ROOT"
+          cp -R build/language_packs/* "../$PACK_ROOT/"
+
+      - name: Sign pack manifests
+        env:
+          L10N_SIGNING_KEY_ID: ${{ env.SIGNING_KEY_ID }}
+          L10N_SIGNING_PRIVATE_KEY_L10N_K1: ${{ secrets.L10N_SIGNING_PRIVATE_KEY_L10N_K1 }}
+        run: |
+          set -euo pipefail
+          chmod +x tools/sign_language_packs.sh
+          ./tools/sign_language_packs.sh "$PACK_ROOT"
+
+      - name: Zip signed packs and refresh languages.json hashes
+        run: |
+          set -euo pipefail
+          chmod +x tools/package_language_packs.sh
+          ./tools/package_language_packs.sh "$PACK_ROOT" "$RELEASE_TAG" scomm-public/localizations
+
+      - name: Validate release assets
+        run: |
+          set -euo pipefail
+          test -f "$PACK_ROOT/languages.json"
+          python3 - <<'PY'
+          import json
+          from pathlib import Path
+
+          root = Path("dist/language_packs")
+          index = json.loads((root / "languages.json").read_text(encoding="utf-8"))
+          assert index.get("schemaVersion") == 1
+          for lang in index["languages"]:
+              if lang.get("bundled"):
+                  continue
+              locale = lang["locale"]
+              assert lang.get("sha256"), locale
+              zip_path = root / f"{locale}.scomm-langpack.zip"
+              assert zip_path.exists(), zip_path
+          print(f"OK: {len(index['languages'])} languages")
+          PY
+          ls -la "$PACK_ROOT"/*.scomm-langpack.zip
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.RELEASE_TAG }}
+          name: ${{ env.RELEASE_TAG }}
+          draft: false
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ${{ env.PACK_ROOT }}/languages.json
+            ${{ env.PACK_ROOT }}/*.scomm-langpack.zip

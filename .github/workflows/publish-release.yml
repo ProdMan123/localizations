@@ -1,7 +1,7 @@
-name: Publish language packs
+name: Publish prebuilt language packs
 
-# Upload pre-built pack artifacts to a GitHub Release on this public repo.
-# Build packs elsewhere (or add build steps later), then dispatch with a tag.
+# Sign and publish pack directories uploaded manually or built elsewhere.
+# Prefer build-sign-publish.yml for the full build → sign → release pipeline.
 on:
   workflow_dispatch:
     inputs:
@@ -9,8 +9,12 @@ on:
         description: 'Release tag (e.g. l10n-v1)'
         required: true
         default: 'l10n-v1'
+      signing_key_id:
+        description: 'Signing key id (empty to skip signing)'
+        required: false
+        default: 'l10n-k1'
       artifact_dir:
-        description: 'Directory containing languages.json and *.scomm-langpack.zip'
+        description: 'Directory with languages.json and *.scomm-langpack folders or zips'
         required: true
         default: 'dist'
 
@@ -24,17 +28,38 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check release assets exist
+      - name: Prepare pack root
         run: |
           set -euo pipefail
           DIR="${{ inputs.artifact_dir }}"
           if [ ! -f "$DIR/languages.json" ]; then
             echo "Missing $DIR/languages.json"
-            echo "Build packs first, place assets under $DIR/, then re-run."
-            echo "See docs/PUBLISHING.md"
             exit 1
           fi
-          ls -la "$DIR"/*.scomm-langpack.zip
+          if compgen -G "$DIR/*.scomm-langpack" > /dev/null; then
+            echo "Found unpacked pack directories"
+          elif compgen -G "$DIR/*.scomm-langpack.zip" > /dev/null; then
+            echo "Found zip assets (signing skipped unless unpacked dirs present)"
+          else
+            echo "No pack assets under $DIR"
+            exit 1
+          fi
+
+      - name: Sign unpacked manifests
+        if: inputs.signing_key_id != ''
+        env:
+          L10N_SIGNING_KEY_ID: ${{ inputs.signing_key_id }}
+          L10N_SIGNING_PRIVATE_KEY_L10N_K1: ${{ secrets.L10N_SIGNING_PRIVATE_KEY_L10N_K1 }}
+        run: |
+          set -euo pipefail
+          DIR="${{ inputs.artifact_dir }}"
+          if compgen -G "$DIR/*.scomm-langpack" > /dev/null; then
+            chmod +x tools/sign_language_packs.sh tools/package_language_packs.sh
+            ./tools/sign_language_packs.sh "$DIR"
+            ./tools/package_language_packs.sh "$DIR" "${{ inputs.tag }}" scomm-public/localizations
+          else
+            echo "No unpacked directories; publishing zips as-is"
+          fi
 
       - name: Create / update GitHub Release
         uses: softprops/action-gh-release@v2
@@ -47,5 +72,3 @@ jobs:
           files: |
             ${{ inputs.artifact_dir }}/languages.json
             ${{ inputs.artifact_dir }}/*.scomm-langpack.zip
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

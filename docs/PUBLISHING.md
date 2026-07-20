@@ -54,10 +54,26 @@ dart run tool/publish_language_packs.dart \
 
 CI should upload the resulting files to the matching GitHub Release.
 
+### Automated pipeline (recommended)
+
+Workflow **Build, sign, and publish language packs**
+(`.github/workflows/build-sign-publish.yml`) on this repo:
+
+1. Checks out the application repository
+2. Builds pack directories + `languages.json` (`--skip-zip`)
+3. Signs each manifest with Ed25519 (`tools/sign_language_packs.sh`)
+4. Zips signed packs and refreshes zip SHA-256 entries (`tools/package_language_packs.sh`)
+5. Publishes a GitHub Release
+
+Trigger manually (**Actions → Build, sign, and publish language packs**) or from
+an application `v*` tag via `repository_dispatch` (see app `.github/workflows/l10n.yml`).
+
+Required secrets: `L10N_SIGNING_PRIVATE_KEY_L10N_K1`, `SECMAIL_READ_TOKEN`.
+
 ## Security baseline
 
 - HTTPS only (GitHub Releases)
 - Schema validation of manifests / index
 - SHA-256 of pack payloads
 - Safe zip extraction (no path traversal, allowlisted entries only)
-- Optional Ed25519 signing may be added later
+- Optional Ed25519 signing — see [SIGNING.md](SIGNING.md)

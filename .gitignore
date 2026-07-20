@@ -15,3 +15,5 @@ Thumbs.db
 # Local secrets
 .env
 .env.*
+*-private.pem
+*.key.pem

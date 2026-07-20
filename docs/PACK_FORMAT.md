@@ -24,6 +24,9 @@ No executables, nested archives, or scripts.
 | `stringsSha256` | string | recommended | Hex SHA-256 of `strings.json` UTF-8 bytes |
 | `appMinVersion` | string | no | Minimum app semver |
 | `direction` | string | no | `ltr` or `rtl` (also listed in `languages.json`) |
+| `signatureKeyId` | string | no | Signing key id (e.g. `l10n-k1`); see [SIGNING.md](SIGNING.md) |
+| `signatureAlgorithm` | string | no | `Ed25519` when signed |
+| `signature` | string | no | Base64 Ed25519 signature over the v1 signing payload |
 
 ## `strings.json`
 

@@ -65,6 +65,18 @@
     "direction": {
       "type": "string",
       "enum": ["ltr", "rtl"]
+    },
+    "signatureKeyId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "signatureAlgorithm": {
+      "type": "string",
+      "const": "Ed25519"
+    },
+    "signature": {
+      "type": "string",
+      "minLength": 1
     }
   }
 }
