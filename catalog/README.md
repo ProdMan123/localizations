@@ -1,17 +1,20 @@
 # Catalog
 
-Canonical translation sources for SComm (typically ARB or JSON keyed like the
-application English catalog).
+Canonical full-catalog translation sources for downloadable language packs.
 
-Place locale files here as they are contributed, for example:
+Layout:
 
 ```text
 catalog/
-  app_en.arb          # optional mirror of canonical English
   app_de.arb
   app_ja.arb
   …
 ```
 
-Built `.scomm-langpack.zip` files must **not** be committed here; publish them
-via GitHub Releases.
+These ARBs are machine-translated first-cut catalogs (≈1182 keys) used by the
+**Build, sign, and publish** workflow. Human-reviewed strings should be marked
+with `x-scomm-source: human` / `x-scomm-locked: true` so automated tools do not
+overwrite them.
+
+Built `.scomm-langpack.zip` files must **not** be committed here; they are
+published via GitHub Releases (`l10n-latest`).
