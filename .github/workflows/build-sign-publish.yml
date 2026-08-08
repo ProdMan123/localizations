@@ -98,9 +98,11 @@ jobs:
           # app repos, set secret SECMAIL_READ_TOKEN on this repository.
           token: ${{ secrets.SECMAIL_READ_TOKEN || github.token }}
 
-      - uses: subosito/flutter-action@v2
+      # Pin must match secMail CI (Dart >=3.13); floating stable lags the app SDK.
+      - uses: fl-start/flutter-action@v2
         with:
-          channel: stable
+          channel: beta
+          flutter-version: '3.47.0-0.4.pre'
           cache: true
 
       - name: Prepare merged ARB catalog
